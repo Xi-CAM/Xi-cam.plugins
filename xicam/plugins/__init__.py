@@ -7,6 +7,7 @@ from appdirs import user_config_dir, site_config_dir, user_cache_dir
 from yapsy import PluginInfo
 from yapsy.PluginManager import PluginManager
 
+import xicam
 from xicam.core import msg
 from .DataHandlerPlugin import DataHandlerPlugin
 from .GUIPlugin import GUIPlugin, GUILayout
@@ -57,11 +58,13 @@ class XicamPluginManager(PluginManager):
                                      'SettingsPlugin': SettingsPlugin,
                                      'EZPlugin': _EZPlugin,
                                      'Fittable1DModelPlugin': Fittable1DModelPlugin})
-
+        plugin_path = [os.getcwd(),
+                       str(Path(__file__).parent.parent),
+                       user_plugin_dir,
+                       site_plugin_dir,
+                       venvs.current_environment] + list(xicam.__path__)
         self.setCategoriesFilter(categoriesfilter)
-        self.setPluginPlaces(
-            [os.getcwd(), str(Path(__file__).parent.parent), user_plugin_dir, site_plugin_dir,
-             venvs.current_environment])
+        self.setPluginPlaces(plugin_path)
         self.loadcomplete = False
 
     def collectPlugins(self):
