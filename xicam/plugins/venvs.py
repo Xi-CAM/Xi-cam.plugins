@@ -40,10 +40,8 @@ def create_environment(name: str):
             env['VIRTUALENV_INTERPRETER_RUNNING'] = 'true'
         else:
             python = sys.executable
-
-        p = subprocess.Popen([python, virtualenv.__file__, venvpath], env=env)
-        p.wait()
-
+        subprocess.check_call([python, '-mvirtualenv', venvpath],
+                              env=env)
 
 
 def use_environment(name):
