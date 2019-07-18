@@ -222,7 +222,8 @@ class ProcessingPlugin(IPlugin):
                                                                None),
                                                   units=input.units,
                                                   fixed=input.fixed,
-                                                  fixable=input.fixable)
+                                                  fixable=input.fixable,
+                                                  visible=input.visible)
                     childparam.sigValueChanged.connect(
                         partial(self.setParameterValue, name))
                     if input.fixable:
@@ -431,12 +432,15 @@ class Input(Var):
     fixable : bool, optional
         Indicates if the variable is able to be fixed or not as a parameter
         (the default is False).
+    visible : bool, optional
+        Indicates if the variable is visible on the parameter tree
+        (the default is True).
 
     """
 
     def __init__(self, name='', description='', default=None, type=None,
                  units=None, min=None, max=None, limits=None,
-                 fixed=False, fixable=False):
+                 fixed=False, fixable=False, visible=True):
 
         self.fixed = fixed
         super(Input, self).__init__()
@@ -448,6 +452,7 @@ class Input(Var):
         self.type = type
         self._value = default
         self.fixable = fixable
+        self.visible = visible
         if min and max:
             self._limits = (min, max)
 
