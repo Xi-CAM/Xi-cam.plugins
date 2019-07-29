@@ -223,7 +223,8 @@ class ProcessingPlugin(IPlugin):
                                                   units=input.units,
                                                   fixed=input.fixed,
                                                   fixable=input.fixable,
-                                                  visible=input.visible)
+                                                  visible=input.visible,
+                                                  **input.opts)
                     childparam.sigValueChanged.connect(
                         partial(self.setParameterValue, name))
                     if input.fixable:
@@ -440,7 +441,7 @@ class Input(Var):
 
     def __init__(self, name='', description='', default=None, type=None,
                  units=None, min=None, max=None, limits=None,
-                 fixed=False, fixable=False, visible=True):
+                 fixed=False, fixable=False, visible=True, **kwargs):
 
         self.fixed = fixed
         super(Input, self).__init__()
@@ -453,7 +454,8 @@ class Input(Var):
         self._value = default
         self.fixable = fixable
         self.visible = visible
-        if min and max:
+        self.opts = kwargs
+        if limits is None:
             self._limits = (min, max)
 
     @property
