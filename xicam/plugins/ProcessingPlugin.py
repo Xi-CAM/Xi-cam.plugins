@@ -287,10 +287,11 @@ class ProcessingPlugin(IPlugin):
 
         """
         d = self.__dict__.copy()
-        print('reduction:', d)
         blacklist = ['_param', '_workflow', 'parameter']
         for key in blacklist:
-            if key in d: del d[key]
+            if key in d:
+                del d[key]
+        print('reduction:', d)
         return _ProcessingPluginRetriever(), (self.__class__.__name__, d)
 
 
@@ -306,7 +307,7 @@ class _ProcessingPluginRetriever(object):
         from xicam.plugins import manager as pluginmanager
 
         # if pluginmanager hasn't collected plugins yet, then do it
-        if not pluginmanager.loadcomplete: pluginmanager.collectPlugins()
+        if not pluginmanager.loadcomplete and not pluginmanager.loading: pluginmanager.collectPlugins()
 
         # look for the plugin matching the saved name and re-instance it
         for plugin in pluginmanager.getPluginsOfCategory('ProcessingPlugin'):
@@ -368,6 +369,7 @@ def EZProcessingPlugin(method: Callable) -> Type[ProcessingPlugin]:
 
 
 class Var(object):
+    whitelist = set()
     """
     Defines a variable.
 
@@ -404,8 +406,17 @@ class Var(object):
     def unsubscribe(self, var):
         pass
 
+    def __reduce__(self):
+        d = dict()
+        for key in self.whitelist:
+            d[key] = getattr(self, key)
+        return self.__class__, tuple(d.values())
+
 
 class Input(Var):
+    whitelist = {'name', 'description', 'default', 'type', 'units', 'min',
+                 'max', 'limits', 'fixed', 'fixable', 'visible', 'opts'}
+
     """
     Defines an input variable.
 
@@ -438,10 +449,9 @@ class Input(Var):
         (the default is True).
 
     """
-
     def __init__(self, name='', description='', default=None, type=None,
                  units=None, min=None, max=None, limits=None,
-                 fixed=False, fixable=False, visible=True, **kwargs):
+                 fixed=False, fixable=False, visible=True, opts=None, **kwargs):
 
         self.fixed = fixed
         super(Input, self).__init__()
@@ -454,7 +464,8 @@ class Input(Var):
         self._value = default
         self.fixable = fixable
         self.visible = visible
-        self.opts = kwargs
+        self.opts = opts or dict()
+        self.opts.update(kwargs)
         if limits is None:
             self._limits = (min, max)
 
@@ -507,6 +518,7 @@ class Input(Var):
 
 
 class Output(Var):
+    whitelist = {'name', 'description', 'type', 'units'}
     """
     Defines an output variable.
 
@@ -532,6 +544,7 @@ class Output(Var):
 
 
 class InputOutput(Input, Output):
+    whitelist = Input.whitelist | Output.whitelist
     """
     Represents a variable that acts both as in input and an output.
     """
