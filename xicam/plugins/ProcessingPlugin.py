@@ -291,7 +291,6 @@ class ProcessingPlugin(IPlugin):
         for key in blacklist:
             if key in d:
                 del d[key]
-        print('reduction:', d)
         return _ProcessingPluginRetriever(), (self.__class__.__name__, d)
 
 
