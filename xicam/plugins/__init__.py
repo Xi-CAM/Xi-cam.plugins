@@ -13,7 +13,7 @@ from .guiplugin import GUIPlugin, GUILayout
 from .processingplugin import ProcessingPlugin, EZProcessingPlugin, Input, Output, InOut, InputOutput
 from .settingsplugin import SettingsPlugin, ParameterSettingsPlugin
 from .dataresourceplugin import DataResourcePlugin
-from .controllerpugin import ControllerPlugin
+from .controllerplugin import ControllerPlugin
 from .widgetplugin import QWidgetPlugin
 from .venvs import observers as venvsobservers
 from .dataresourceplugin import DataResourcePlugin
@@ -145,6 +145,11 @@ class XicamPluginManager(PluginManager):
         return plugin
 
     def getPluginsOfCategory(self, category_name):
+        while not self.loadcomplete:
+            if threads.is_main_thread():
+                QApplication.processEvents()
+            else:
+                time.sleep(0.01)
         plugins = super(XicamPluginManager, self).getPluginsOfCategory(category_name)
         return [plugin for plugin in plugins if plugin.plugin_object]
 
@@ -188,7 +193,7 @@ class XicamPluginManager(PluginManager):
         The default behavior is that each plugin is instanciated at load time; the class is thrown away.
         Add the isSingleton = False attribute to your plugin class to prevent this behavior!
         """
-        msg.logMessage(f"Instanciating {plugin_info.name} plugin object.")
+        msg.logMessage(f"Instanciating {plugin_info.name} plugin object.", level=msg.INFO)
 
         with load_timer() as elapsed:
             try:
@@ -333,8 +338,9 @@ class XicamPluginManager(PluginManager):
             if not success:
                 for element in (getattr(candidate_module, name) for name in dirlist):  # add filtering?
 
-                    self.load_element(element, candidate_infofile, plugin_info)
-
+                    success = self.load_element(element, candidate_infofile, plugin_info)
+                    if success:
+                        break
             if success:
                 msg.logMessage(f"{int(elapsed() * 1000)} ms elapsed while loading {plugin_info.name}", level=msg.INFO)
             else:
