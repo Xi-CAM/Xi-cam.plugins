@@ -251,7 +251,7 @@ class ProcessingPlugin(IPlugin):
         return self._param
 
     def getCategory() -> str:
-        return "Unasigned"
+        return "default"
 
     def setParameterValue(self, name, param, value):
         """
