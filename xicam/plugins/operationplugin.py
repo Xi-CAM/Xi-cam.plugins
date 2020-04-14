@@ -1,6 +1,6 @@
 """TODO Module docstring"""
 import inspect
-from typing import Collection, Tuple, Type, Union
+from typing import Collection, Tuple, Type, Union, List
 from collections import namedtuple, OrderedDict
 
 from pyqtgraph.parametertree.Parameter import PARAM_TYPES
@@ -81,7 +81,15 @@ class OperationPlugin:
     visible : dict
         Keys are the pareameter names, values are bools indicating whehter or not the parameter
         is visible (when exposed using pyqtgraph).
+    disabled : bool
+        Whether or not the operation is disabled (default is False).
+    display_name: str
+        The name of the operation as it should be displayed to a user.
     hints : list
+    input_descriptions : dict
+        A mapping dict containing descriptions of each named input parameter
+    output_descriptions : dict
+        A mapping dict containing descriptions of each named output parameter
 
     See Also
     --------
@@ -100,9 +108,13 @@ class OperationPlugin:
         return x + y
 
     """
-    def __init__(self, func, filled_values=None, fixable: dict = None, fixed: dict = None, input_names: Tuple[str, ...] = None,
+
+    def __init__(self, func, filled_values=None, fixable: dict = None, fixed: dict = None,
+                 input_names: Tuple[str, ...] = None,
                  limits: dict = None, opts: dict = None, output_names: Tuple[str, ...] = None,
-                 output_shape: dict = None, units: dict = None, visible: dict = None):
+                 output_shape: dict = None, units: dict = None, visible: dict = None, name: str = None,
+                 input_descriptions: dict = None, output_descriptions: dict = None,
+                 categories: Tuple[Union[tuple, str]] = None):
         """Create an Operation explicitly with __init__.
 
         Note that an OperationPlugin can be created by using the decorator `@OperationPlugin` (recommended)
@@ -131,11 +143,20 @@ class OperationPlugin:
             Defines expected shapes for the outputs.
         units : dict, optional
             Defines units for the parameters in the operation.
+        name : str, optional
+            The display name to be shown to the user. Defaults to self.__name__
         visible : dict, optional
             Indicates if a parameter is visible or not (see pyqtgraph.Parameter).
+        input_descriptions : dict, optional
+            A mapping dict containing descriptions for each named input
+        output_descriptions : dict, optional
+            A mapping dict containing descriptions for each named output
+        categories : List[Union[tuple, str], optional
+            A sequence of categories to associate with this operation.
+
         """
         self._func = func
-        self.name = getattr(func, 'name', getattr(func, '__name__', None))
+        self.name = name or getattr(func, 'name', getattr(func, '__name__', None))
         if self.name is None:
             raise NameError('The provided operation is unnamed.')
         # Allow passing a string
@@ -149,6 +170,9 @@ class OperationPlugin:
             output_names = (output_names,)
         self.output_names = output_names or getattr(func, 'output_names', tuple())
         self.output_shape = output_shape or getattr(func, 'output_shape', {})
+        self.input_descriptions = input_descriptions or getattr(func, 'input_descriptions', {})
+        self.output_descriptions = output_descriptions or getattr(func, 'output_descriptions', {})
+        self.categories = categories or getattr(func, 'categories', [])
         self.filled_values = filled_values or {}
         self.limits = limits or getattr(func, 'limits', {})
         self.units = units or getattr(func, 'units', {})
@@ -490,7 +514,7 @@ def output_names(*names):
 
     Parameters
     ----------
-    names : str (any number of strings separated by comma)
+    names : List[str]
         Names for the outputs in the operation.
 
     Examples
@@ -510,7 +534,7 @@ def output_names(*names):
     return decorator
 
 
-def output_shape(arg_name, shape: Union[int, Collection[int]]):
+def output_shape(arg_name: str, shape: Union[int, Collection[int]]):
     # TODO: how does this work? How do we know the shape before runtime?
     """Decorator to set the shape of an output in an operation."
 
@@ -532,7 +556,7 @@ def output_shape(arg_name, shape: Union[int, Collection[int]]):
     return decorator
 
 
-def visible(arg_name, is_visible=True):
+def visible(arg_name: str, is_visible=True):
     """Decorator to set whether an input is visible (shown in GUI) or not.
 
     Parameters
@@ -558,7 +582,7 @@ def visible(arg_name, is_visible=True):
     return decorator
 
 
-def opts(arg_name, **options):
+def opts(arg_name: str, **options):
     """Decorator to set the opts (pyqtgraph Parameter opts) for `arg_name`.
 
     This is useful for attaching any extra attributes onto an operation input argument.
@@ -582,7 +606,104 @@ def opts(arg_name, **options):
     def op(x: str = 100) -> str:\
         return x
     """
+
     def decorator(func):
         _quick_set(func, 'opts', arg_name, options, {})
         return func
+
+    return decorator
+
+
+def _describe_arg(arg_type: str, arg_name: str, description: str):
+    assert arg_type in ['input', 'output']
+
+    def decorator(func):
+        _quick_set(func, f'{arg_type}_descriptions', arg_name, description, {})
+        return func
+
+    return decorator
+
+
+def describe_input(arg_name: str, description: str):
+    """Decorator to set the description for input `arg_name`.
+
+    This is useful for annotating the parameter with additional information for users.
+
+    These annotations are displayed in GUI representations of the operation.
+
+    Parameters
+    ----------
+    arg_name : str
+        Name of the input to add options for.
+    description : str
+        A human-readable description of the input `arg_name`
+
+    Examples
+    --------
+    Define an operation where the `x` input is readonly.
+
+    >>>@OperationPlugin\
+    @describe_input('x', 'The value to square.')\
+    def square(x: int = 100) -> int:\
+        return x**2
+    """
+
+    return _describe_arg('input', arg_name, description)
+
+
+def describe_output(arg_name: str, description: str):
+    """Decorator to set the description for output `arg_name`.
+
+    This is useful for annotating the parameter with additional information for users.
+
+    These annotations are displayed in GUI representations of the operation.
+
+    Parameters
+    ----------
+    arg_name : str
+        Name of the input to add options for.
+    description : str
+        A human-readable description of the output `arg_name`.
+
+    Examples
+    --------
+    Define an operation where the `x` input is readonly.
+
+    >>>@OperationPlugin\
+    @output_names('square')\
+    @describe_output('square', 'The squared value of x.')\
+    def square(x: int = 100) -> int:\
+        return x**2
+    """
+
+    return _describe_arg('output', arg_name, description)
+
+
+def categories(*categories: Tuple[Union[tuple, str]]):
+    """Decorator to assign categories to a operation.
+
+    These categories will be used to populate the structure of Xi-cam's menus of `OperationPlugins`.
+
+    Parameters
+    ----------
+    categories : Tuple[Union[tuple, str]]
+        A sequence of categories. Each item is a tuple or str. If an item is a tuple, each item in the tuple is considered
+        as an additional depth in the menu structure.
+
+    Examples
+    --------
+    Define an operation where the `x` input is readonly.
+
+    >>>@OperationPlugin\
+    @categories(('Generic Functions', 'Simple Math'), 'Math Functions')\
+    def square(x: int = 100) -> int:\
+        return x**2
+    """
+
+    def decorator(func):
+        if not hasattr(func, 'categories'):
+            func.categories = []
+        func.categories.append(categories)
+        return func
+
     return decorator
