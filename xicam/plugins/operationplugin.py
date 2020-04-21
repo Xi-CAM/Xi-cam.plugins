@@ -1,6 +1,6 @@
 """TODO Module docstring"""
 import inspect
-from typing import Collection, Tuple, Type, Union, List
+from typing import Collection, Tuple, Type, Union, List, Callable, Sequence
 from collections import namedtuple, OrderedDict
 
 from pyqtgraph.parametertree.Parameter import PARAM_TYPES
@@ -24,6 +24,7 @@ class ValidationError(OperationError):
     message : str
         Explanation of the error.
     """
+
     def __init__(self, operation, message):
         self.operation = operation
         self.message = message
@@ -36,7 +37,9 @@ class ValidationError(OperationError):
         return f"Validation failed for {self.operation}: {self.message}"
 
 
-# TODO: make it so order of OperationPlugin decorator doesn't matter
+# TODO: Remove all args from OperationPlugin
+
+
 class OperationPlugin:
     """A plugin that can be used to define an operation, which can be used in a Workflow.
 
@@ -109,102 +112,55 @@ class OperationPlugin:
 
     """
 
-    def __init__(self, func, filled_values=None, fixable: dict = None, fixed: dict = None,
-                 input_names: Tuple[str, ...] = None,
-                 limits: dict = None, opts: dict = None, output_names: Tuple[str, ...] = None,
-                 output_shape: dict = None, units: dict = None, visible: dict = None, name: str = None,
-                 input_descriptions: dict = None, output_descriptions: dict = None,
-                 categories: Tuple[Union[tuple, str]] = None):
-        """Create an Operation explicitly with __init__.
+    _func = None  # type: Callable
+    filled_values = {}  # type: dict
+    fixable = None  # type: dict
+    fixed = None  # type: dict
+    input_names = None  # type: Tuple[str]
+    output_names = None  # type: Tuple[str]
+    limits = None  # type: dict
+    opts = None  # type: dict
+    output_shape = None  # type: dict
+    units = None  # type: dict
+    visible = None  # type: dict
+    name = None  # type: str
+    input_descriptions = None  # type: dict
+    output_descriptions = None  # type: dict
+    categories = None  # type: Sequence[Union[tuple, str]]
 
-        Note that an OperationPlugin can be created by using the decorator `@OperationPlugin` (recommended)
-        or using the constructor explicitly.
-        When using the decorator, use the decorators provided in this module to set the operation's attributes.
-        The `@OperationPlugin` decorator must be used before the attribute decorators.
+    def __init__(self):
+        super(OperationPlugin, self).__init__()
+        # Copy class dict information so that changes to instance don't propagate to class
+        self.filled_values = self.filled_values.copy()
+        self.fixable = self.fixable.copy()
+        self.fixed = self.fixed.copy()
+        self.limits = self.limits.copy()
+        self.opts = self.opts.copy()
+        self.output_shape = self.output_shape.copy()
+        self.units = self.units.copy()
 
-        Parameters
-        ----------
-        func : Callable
-            Function that this operation will call.
-        filled_values : dict, optional
-            Values to fill for the parameters.
-        fixable : dict, optional
-            Indicates which parameters are able to be fixed.
-        fixed :  dict, optional
-            Indicates whether or not a parameter is fixed.
-        limits : dict, optional
-            Defines limits for parameters.
-        opts : dict, optional
-            Additional options (kwargs) for the parameter
-            (useful with pyqtgraph's Parameter/ParameterTree).
-        output_names : tuple, optional
-            Names for the outputs, or returned values, of the operation.
-        output_shape : dict, optional
-            Defines expected shapes for the outputs.
-        units : dict, optional
-            Defines units for the parameters in the operation.
-        name : str, optional
-            The display name to be shown to the user. Defaults to self.__name__
-        visible : dict, optional
-            Indicates if a parameter is visible or not (see pyqtgraph.Parameter).
-        input_descriptions : dict, optional
-            A mapping dict containing descriptions for each named input
-        output_descriptions : dict, optional
-            A mapping dict containing descriptions for each named output
-        categories : List[Union[tuple, str], optional
-            A sequence of categories to associate with this operation.
-
-        """
-        self._func = func
-        self.name = name or getattr(func, 'name', getattr(func, '__name__', None))
-        if self.name is None:
-            raise NameError('The provided operation is unnamed.')
-        # Allow passing a string
-        if type(input_names) is str:
-            input_names = (input_names,)
-        # Fallback to inspecting the function arg names if no input names provided
-        self.input_names = input_names or getattr(func,
-                                                  'input_names',
-                                                  tuple(inspect.signature(self._func).parameters.keys()))
-        if type(output_names) is str:
-            output_names = (output_names,)
-        self.output_names = output_names or getattr(func, 'output_names', tuple())
-        self.output_shape = output_shape or getattr(func, 'output_shape', {})
-        self.input_descriptions = input_descriptions or getattr(func, 'input_descriptions', {})
-        self.output_descriptions = output_descriptions or getattr(func, 'output_descriptions', {})
-        self.categories = categories or getattr(func, 'categories', [])
-        self.filled_values = filled_values or {}
-        self.limits = limits or getattr(func, 'limits', {})
-        self.units = units or getattr(func, 'units', {})
-        self.fixed = fixed or getattr(func, 'fixed', {})
-        self.fixable = fixable or getattr(func, 'fixable', {})
-        self.visible = visible or getattr(func, 'visible', {})
-        self.opts = opts or getattr(func, 'opts', {})
-        self.hints = getattr(func, 'hints', [])  # TODO: does hints need an arg
-
-        self._validate()
-
-    def _validate(self):
+    @classmethod
+    def _validate(cls):
         """Validates the OperationPlugin's inputs and outputs."""
 
         # Capture any validation issues for use later when raising
         invalid_msg = ""
         # Define which "input" arg properties we want to check
-        input_properties = {"fixable": self.fixable,
-                            "fixed": self.fixed,
-                            "limits": self.limits,
-                            "opts": self.opts,
-                            "units": self.units,
-                            "visible": self.visible}
+        input_properties = {"fixable": cls.fixable,
+                            "fixed": cls.fixed,
+                            "limits": cls.limits,
+                            "opts": cls.opts,
+                            "units": cls.units,
+                            "visible": cls.visible}
         # Check if all the attributes have a default value for each input param
-        for arg in self.input_names:
+        for arg in cls.input_names:
             for name, prop in input_properties.items():
                 if prop and arg not in prop:
-                    pass    # Do we want to enforce input default values?
+                    pass  # Do we want to enforce input default values?
 
         # Check if there is a 1:1 mapping from user-specified input_names to function args
-        num_names = len(self.input_names)
-        num_args = len(inspect.signature(self._func).parameters.keys())
+        num_names = len(cls.input_names)
+        num_args = len(inspect.signature(cls._func).parameters.keys())
         if num_names != num_args:
             invalid_msg += (f"Number of input_names given ({num_names}) "
                             f"must match number of inputs for the operation ({num_args}).")
@@ -214,28 +170,28 @@ class OperationPlugin:
         # def func(a): return
         for name, prop in input_properties.items():
             for arg in prop.keys():
-                if arg not in self.input_names:
+                if arg not in cls.input_names:
                     invalid_msg += f"\"{arg}\" is not a valid input for \"{name}\". "
 
         # Warn if there are no output_names defined
-        if not len(self.output_names):
-            warning_msg = (f"No output_names have been specified for your operation {self}; "
+        if not len(cls.output_names):
+            warning_msg = (f"No output_names have been specified for your operation {cls}; "
                            f"you will not be able to connect your operation's output(s) to "
                            f"any other operations.")
             msg.logMessage(warning_msg, level=msg.WARNING)
 
         # Define which "output" arg properties we want to check
-        output_properties = {"output_shape": self.output_shape}
+        output_properties = {"output_shape": cls.output_shape}
         # Check if there are any output args that are not actually defined in the operation
         for name, prop in output_properties.items():
             for arg in prop.keys():
-                if arg not in self.output_names:
+                if arg not in cls.output_names:
                     invalid_msg += f"\"{arg}\" is not a valid output for \"{name}\". "
 
         if invalid_msg:
-            raise ValidationError(self, invalid_msg)
+            raise ValidationError(cls, invalid_msg)
         else:
-            msg.logMessage(f"All args for {self} are valid.")
+            msg.logMessage(f"All args for {cls} are valid.")
 
     def __call__(self, **kwargs):
         """Allows this class to be used as a function decorator."""
@@ -267,9 +223,10 @@ class OperationPlugin:
         return output_type_map
 
     def __reduce__(self):
-        return OperationPlugin, (self._func,), {'filled_values': self.filled_values,
-                                                'input_names': self.input_names,
-                                                'output_names': self.output_names}
+        return OperationPlugin, tuple(), {'_func': self._func,
+                                          'filled_values': self.filled_values,
+                                          'input_names': self.input_names,
+                                          'output_names': self.output_names}
 
     def as_parameter(self):
         """Return the operation's inputs as a ready-to-use object with pyqtgraph.
@@ -338,6 +295,97 @@ class OperationPlugin:
         return parameter_dicts
 
 
+def operation(func: Callable,
+              filled_values: dict = None, fixable: dict = None, fixed: dict = None,
+              input_names: Tuple[str, ...] = None, output_names: Tuple[str, ...] = None,
+              limits: dict = None,
+              opts: dict = None,
+              output_shape: dict = None,
+              units: dict = None,
+              visible: dict = None,
+              name: str = None,
+              input_descriptions: dict = None, output_descriptions: dict = None,
+              categories: Sequence[Union[tuple, str]] = None) -> Type[OperationPlugin]:
+    """Create an Operation explicitly with __init__.
+
+    Note that an OperationPlugin can be created by using the decorator `@OperationPlugin` (recommended)
+    or using the constructor explicitly.
+    When using the decorator, use the decorators provided in this module to set the operation's attributes.
+    The `@OperationPlugin` decorator must be used before the attribute decorators.
+
+    Parameters
+    ----------
+    func : Callable
+        Function that this operation will call.
+    filled_values : dict, optional
+        Values to fill for the parameters.
+    fixable : dict, optional
+        Indicates which parameters are able to be fixed.
+    fixed :  dict, optional
+        Indicates whether or not a parameter is fixed.
+    limits : dict, optional
+        Defines limits for parameters.
+    opts : dict, optional
+        Additional options (kwargs) for the parameter
+        (useful with pyqtgraph's Parameter/ParameterTree).
+    output_names : tuple, optional
+        Names for the outputs, or returned values, of the operation.
+    output_shape : dict, optional
+        Defines expected shapes for the outputs.
+    units : dict, optional
+        Defines units for the parameters in the operation.
+    name : str, optional
+        The display name to be shown to the user. Defaults to self.__name__
+    visible : dict, optional
+        Indicates if a parameter is visible or not (see pyqtgraph.Parameter).
+    input_descriptions : dict, optional
+        A mapping dict containing descriptions for each named input
+    output_descriptions : dict, optional
+        A mapping dict containing descriptions for each named output
+    categories : List[Union[tuple, str], optional
+        A sequence of categories to associate with this operation.
+
+    """
+
+    # Allow passing a string
+    if type(input_names) is str:
+        input_names = (input_names,)
+
+    if type(output_names) is str:
+        output_names = (output_names,)
+
+    state = {  # "_func": func,
+        "name": name or getattr(func, 'name', getattr(func, '__name__', None)),
+        # Fallback to inspecting the function arg names if no input names provided
+        "input_names": input_names or getattr(func,
+                                              'input_names',
+                                              tuple(inspect.signature(func).parameters.keys())),
+        "output_names": output_names or getattr(func, 'output_names', getattr(func, "__name__", tuple())),
+        "output_shape": output_shape or getattr(func, 'output_shape', {}),
+        "input_description": input_descriptions or getattr(func, 'input_descriptions', {}),
+        "output_descriptions": output_descriptions or getattr(func, 'output_descriptions', {}),
+        "categories": categories or getattr(func, 'categories', []),
+        "filled_values": filled_values or {},
+        "limits": limits or getattr(func, 'limits', {}),
+        "units": units or getattr(func, 'units', {}),
+        "fixed": fixed or getattr(func, 'fixed', {}),
+        "fixable": fixable or getattr(func, 'fixable', {}),
+        "visible": visible or getattr(func, 'visible', {}),
+        "opts": opts or getattr(func, 'opts', {}),
+        "hitns": getattr(func, 'hints', [])  # TODO: does hints need an arg
+    }
+
+    if state["name"] is None:
+        raise NameError('The provided operation is unnamed.')
+
+    operation_class = type('WrappedOperationPlugin', (OperationPlugin,), state)  # Ignore intellisense warnings
+    operation_class._func = staticmethod(func)
+
+    operation_class._validate()
+
+    return operation_class
+
+
 def _quick_set(func, attr_name, key, value, init):
     # TODO: does this need to be called initially to provide valid defaults?
     if not hasattr(func, attr_name):
@@ -364,9 +412,11 @@ def display_name(name):
     def cube(n: int = 2) -> int:\
         return n**3
     """
+
     def decorator(func):
         func.name = name
         return func
+
     return decorator
 
 
@@ -391,6 +441,7 @@ def units(arg_name, unit):
     def op(x: float = -1) -> float:\
         return x *= -1.0
     """
+
     def decorator(func):
         _quick_set(func, 'units', arg_name, unit, {})
         return func
@@ -399,7 +450,7 @@ def units(arg_name, unit):
 
 
 def fixed(arg_name, fix=True):
-    #TODO is this a toggleable 'lock' on the parameter's value?
+    # TODO is this a toggleable 'lock' on the parameter's value?
     """Decorator to set whether or not an input's value is fixed.
 
     By default, sets the `arg_name` input to fixed, meaning its value cannot
@@ -414,6 +465,7 @@ def fixed(arg_name, fix=True):
 
     TODO example
     """
+
     def decorator(func):
         _quick_set(func, 'fixed', arg_name, fix, {})
         return func
@@ -452,6 +504,7 @@ def limits(arg_name, limit):
         ...
 
     """
+
     def decorator(func):
         _quick_set(func, 'limits', arg_name, limit, {})
         return func
@@ -461,6 +514,7 @@ def limits(arg_name, limit):
 
 # TODO: need an image_hint decorator? coplot_hint decorator?
 
+# TODO Check that signature propagates up
 def plot_hint(*args, **kwargs):
     """Decorator to define plot hints for 1-dimensional outputs.
 
@@ -473,6 +527,7 @@ def plot_hint(*args, **kwargs):
 
     TODO examples may be helpful in these...
     """
+
     def decorator(func):
         if not hasattr(func, 'hints'):
             func.hints = []
@@ -500,9 +555,11 @@ def input_names(*names):
     def my_add(x: int, y: int) -> int:\
         return x + y
     """
+
     def decorator(func):
         func.input_names = names
         return func
+
     return decorator
 
 
@@ -527,6 +584,7 @@ def output_names(*names):
         return a, b
 
     """
+
     def decorator(func):
         func.output_names = names
         return func
@@ -549,6 +607,7 @@ def output_shape(arg_name: str, shape: Union[int, Collection[int]]):
     --------
     TODO
     """
+
     def decorator(func):
         _quick_set(func, 'output_shape', arg_name, shape, {})
         return func
@@ -576,9 +635,11 @@ def visible(arg_name: str, is_visible=True):
         return ...
 
     """
+
     def decorator(func):
         _quick_set(func, 'visible', arg_name, is_visible, {})
         return func
+
     return decorator
 
 
@@ -698,6 +759,12 @@ def categories(*categories: Tuple[Union[tuple, str]]):
     @categories(('Generic Functions', 'Simple Math'), 'Math Functions')\
     def square(x: int = 100) -> int:\
         return x**2
+
+    Generic Functions
+        Simple Math
+            Square
+    Math Functions
+        Square
     """
 
     def decorator(func):
