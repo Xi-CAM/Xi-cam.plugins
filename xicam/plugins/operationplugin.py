@@ -314,12 +314,17 @@ def operation(func: Callable,
               name: str = None,
               input_descriptions: dict = None, output_descriptions: dict = None,
               categories: Sequence[Union[tuple, str]] = None) -> Type[OperationPlugin]:
-    """Create an Operation explicitly with __init__.
+    """Create an Operation class.
 
-    Note that an OperationPlugin can be created by using the decorator `@OperationPlugin` (recommended)
-    or using the constructor explicitly.
-    When using the decorator, use the decorators provided in this module to set the operation's attributes.
-    The `@OperationPlugin` decorator must be used before the attribute decorators.
+    This function can be used as a decorator to define a new operation type.
+    The operation can then be instantiated by using the `()` operator on
+    the operation function's name.
+
+    Note that an OperationPlugin can be created in the following ways:
+    * @operation - this creates a new operationplugin type (recommended)
+    * @OperationPlugin - this creates a new operationplugin instance
+    * using the OperationPlugin() constructor
+    These decorators must be used before any other decorators on a function.
 
     Parameters
     ----------
@@ -352,6 +357,23 @@ def operation(func: Callable,
         A mapping dict containing descriptions for each named output
     categories : List[Union[tuple, str], optional
         A sequence of categories to associate with this operation.
+
+    Examples
+    --------
+    Create a new operation type and create a new operation instance from it.
+
+    >>>from xicam.core.execution import Workflow\
+    from xicam.plugins.operationplugin import operation, output_names\
+    \
+    @operation\
+    @output_names("my_output")\
+    def my_func(x: float = 0.0) -> float:\
+        return x * -1\
+    \
+    op = my_func()\
+    workflow = Workflow()\
+    result = workflow.execute(x=2.5).result()\
+    print(result)
 
     """
 
