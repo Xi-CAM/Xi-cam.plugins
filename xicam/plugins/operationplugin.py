@@ -3,7 +3,6 @@ import inspect
 from typing import Collection, Tuple, Type, Union, List, Callable, Sequence
 from collections import namedtuple, OrderedDict
 
-from pyqtgraph.parametertree.Parameter import PARAM_TYPES
 from xicam.core import msg
 
 from .hints import PlotHint
@@ -111,22 +110,24 @@ class OperationPlugin:
         return x + y
 
     """
+    needs_qt = False
 
     _func = None  # type: Callable
     filled_values = {}  # type: dict
-    fixable = None  # type: dict
-    fixed = None  # type: dict
+    fixable = {}  # type: dict
+    fixed = {}  # type: dict
     input_names = None  # type: Tuple[str]
     output_names = None  # type: Tuple[str]
-    limits = None  # type: dict
-    opts = None  # type: dict
-    output_shape = None  # type: dict
-    units = None  # type: dict
-    visible = None  # type: dict
+    limits = {}  # type: dict
+    opts = {}  # type: dict
+    output_shape = {}  # type: dict
+    units = {}  # type: dict
+    visible = {}  # type: dict
     name = None  # type: str
-    input_descriptions = None  # type: dict
-    output_descriptions = None  # type: dict
+    input_descriptions = {}  # type: dict
+    output_descriptions = {}  # type: dict
     categories = None  # type: Sequence[Union[tuple, str]]
+    hints = []
 
     def __init__(self):
         super(OperationPlugin, self).__init__()
@@ -138,6 +139,7 @@ class OperationPlugin:
         self.opts = self.opts.copy()
         self.output_shape = self.output_shape.copy()
         self.units = self.units.copy()
+        self.hints = self.hints.copy()
 
     @classmethod
     def _validate(cls):
@@ -254,13 +256,16 @@ class OperationPlugin:
         .. _Parameter.create: http://www.pyqtgraph.org/documentation/parametertree/parameter.html?highlight=create#pyqtgraph.parametertree.Parameter.create
 
         """
+        from pyqtgraph.parametertree.Parameter import PARAM_TYPES
+
         parameter_dicts = []
         for name, parameter in inspect.signature(self._func).parameters.items():
             if getattr(parameter.annotation, '__name__', None) in PARAM_TYPES:
                 parameter_dict = dict()
                 parameter_dict.update(self.opts.get(name, {}))
                 parameter_dict['name'] = name
-                parameter_dict['default'] = parameter.default if parameter.default is not inspect.Parameter.empty else None
+                parameter_dict[
+                    'default'] = parameter.default if parameter.default is not inspect.Parameter.empty else None
                 parameter_dict['value'] = self.filled_values[
                     name] if name in self.filled_values else parameter_dict['default']
 
@@ -293,6 +298,9 @@ class OperationPlugin:
 
                 parameter_dicts.append(parameter_dict)
         return parameter_dicts
+
+    def wireup_parameter(self, parameter):
+        ...
 
 
 def operation(func: Callable,
@@ -372,7 +380,7 @@ def operation(func: Callable,
         "fixable": fixable or getattr(func, 'fixable', {}),
         "visible": visible or getattr(func, 'visible', {}),
         "opts": opts or getattr(func, 'opts', {}),
-        "hitns": getattr(func, 'hints', [])  # TODO: does hints need an arg
+        "hints": getattr(func, 'hints', [])  # TODO: does hints need an arg
     }
 
     if state["name"] is None:
