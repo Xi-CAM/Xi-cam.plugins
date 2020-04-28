@@ -3,9 +3,9 @@ import pytest
 import numpy as np
 
 from xicam.core import msg
-from xicam.plugins import OperationPlugin
+# from xicam.plugins import operation
 from xicam.plugins.operationplugin import (display_name, fixed, input_names, limits, opts, output_names,
-                                           output_shape, plot_hint, units, visible, ValidationError)
+                                           output_shape, plot_hint, units, visible, ValidationError, operation)
 
 
 # Tests both the function interface and Operation API interface
@@ -22,7 +22,7 @@ class TestFixed:
         # assert func.fixed == {}
         assert not hasattr(func, 'fixed')
         # Test Operation API
-        op = OperationPlugin(func)
+        op = operation(func)
         assert op.fixed == {}
 
     def test_single(self):
@@ -31,7 +31,7 @@ class TestFixed:
             return
         assert func.fixed == {'a': True}
         # Test Operation API
-        op = OperationPlugin(func)
+        op = operation(func)
         assert op.fixed == {'a': True}
 
     def test_multiple(self):
@@ -41,7 +41,7 @@ class TestFixed:
             return
         assert func.fixed == {'a': True, 'b': True}
         # Test Operation API
-        op = OperationPlugin(func)
+        op = operation(func)
         assert op.fixed == {'a': True, 'b': True}
 
     def test_explicit(self):
@@ -51,7 +51,7 @@ class TestFixed:
             return
         assert func.fixed == {'a': True, 'b': False}
         # Test Operation API
-        op = OperationPlugin(func)
+        op = operation(func)
         assert op.fixed == {'a': True, 'b': False}
 
     def test_redundant(self):
@@ -61,7 +61,7 @@ class TestFixed:
             return
         assert func.fixed == {'b': True}
         # Test Operation API
-        op = OperationPlugin(func)
+        op = operation(func)
         assert op.fixed == {'b': True}
 
     def test_no_parameter_with_name(self):
@@ -71,7 +71,7 @@ class TestFixed:
         assert func.fixed == {'dne': True}
         # Test Operation API
         with pytest.raises(ValidationError):
-            OperationPlugin(func)
+            operation(func)
 
     def test_bad(self):
         # TODO: do we need to test unexpected types?
@@ -88,7 +88,7 @@ class TestLimits:
             return
         assert not hasattr(func, 'limits')
         # Test Operation API
-        op = OperationPlugin(func)
+        op = operation(func)
         assert op.limits == {}
 
     def test_limits(self):
@@ -97,7 +97,7 @@ class TestLimits:
             return
         assert func.limits == {'a': [0.0, 1.0]}
         # Test Operation API
-        op = OperationPlugin(func)
+        op = operation(func)
         assert op.limits == {'a': [0.0, 1.0]}
 
 
@@ -109,16 +109,17 @@ class TestOutputNames:
             return np.sum(a, b)
         assert my_sum.output_names == ('sum',)
         # Test Operation API
-        op = OperationPlugin(my_sum)
+        op = operation(my_sum)
         assert op.output_names == ('sum',)
 
     def test_output_names_none_provided(self, caplog):
         def my_op(a, b):
             return 42
+
         assert hasattr(my_op, 'output_names') is False
         # Test Operation API
-        op = OperationPlugin(my_op)
-        assert op.output_names == tuple()
+        op = operation(my_op)
+        assert op.output_names == 'my_op'
         # Expecting a msg.WARNING log record that mentions "output_names"
         expected_warn_record = caplog.records[0]
         assert expected_warn_record.levelno == msg.WARNING
@@ -133,7 +134,7 @@ class TestInputNames:
             return x + y
         assert hasattr(my_op, 'input_names') is False
         # Test Operation API
-        op = OperationPlugin(my_op)
+        op = operation(my_op)
         assert op.input_names == ('x', 'y')
 
     def test_matching_number_of_names(self):
@@ -143,7 +144,7 @@ class TestInputNames:
             return x + y
         assert my_sum.input_names == ('first', 'second')
         # Test the Operation API
-        op = OperationPlugin(my_sum)
+        op = operation(my_sum)
         assert op.input_names == ('first', 'second')
 
     def test_fewer_input_names(self):
@@ -154,7 +155,7 @@ class TestInputNames:
         assert my_sum.input_names == ('first',)
         # Test the Operation API
         with pytest.raises(ValidationError):
-            OperationPlugin(my_sum)
+            operation(my_sum)
 
     def test_extra_input_names(self):
         # Test when there are more input names given that there are function args
@@ -164,7 +165,7 @@ class TestInputNames:
         assert my_sum.input_names == ('first', 'second', 'third', 'fourth')
         # Test the Operation API
         with pytest.raises(ValidationError):
-            OperationPlugin(my_sum)
+            operation(my_sum)
 
 
 class TestOutputShape:
@@ -176,7 +177,7 @@ class TestOutputShape:
             return np.zeros(shape=(10, 10))
         assert func.output_shape == {'out': (10, 10)}
         # Test Operation API
-        op = OperationPlugin(func)
+        op = operation(func)
         assert op.output_shape == {'out': (10, 10)}
 
     def test_missing_output_name(self):
@@ -187,7 +188,7 @@ class TestOutputShape:
         assert func.output_shape == {'out': (10, 10)}
         # Test Operation API
         with pytest.raises(ValidationError):
-            OperationPlugin(func)
+            operation(func)
 
 
 # def test_plot_hint():
@@ -202,7 +203,7 @@ class TestUnits:
             return
         assert not hasattr(func, 'units')
         # Test Operation API
-        op = OperationPlugin(func)
+        op = operation(func)
         assert op.units == {}
 
     def test_units(self):
@@ -211,7 +212,7 @@ class TestUnits:
             return
         assert func.units == {'a': 'mm'}
         # Test Operation API
-        op = OperationPlugin(func)
+        op = operation(func)
         assert op.units == {'a': 'mm'}
 
 
@@ -222,7 +223,7 @@ class TestDisplayName:
             return
         assert not hasattr(func, 'name')
         # Test Operation API
-        op = OperationPlugin(func)
+        op = operation(func)
         assert op.name == func.__name__
 
     def test_display_name(self):
@@ -231,7 +232,7 @@ class TestDisplayName:
             return
         assert func.name == 'my operation name'
         # Test Operation API
-        op = OperationPlugin(func)
+        op = operation(func)
         assert op.name == 'my operation name'
 
 
@@ -245,7 +246,7 @@ class TestVisible:
         # assert func.visible == {'a': True}  # Expects a default to be set regardless
         assert not hasattr(func, 'visible')        # does not expect any defaults to be set; must be explicit
         # Test Operations API
-        op = OperationPlugin(func)
+        op = operation(func)
         assert op.visible == {}
 
     def test_default(self):
@@ -254,7 +255,7 @@ class TestVisible:
             return
         assert func.visible == {'a': True}
         # Test Operations API
-        op = OperationPlugin(func)
+        op = operation(func)
         assert op.visible == {'a': True}
 
     def test_true(self):
@@ -263,7 +264,7 @@ class TestVisible:
             return
         assert func.visible == {'a': True}
         # Test Operations API
-        op = OperationPlugin(func)
+        op = operation(func)
         assert op.visible == {'a': True}
 
     def test_false(self):
@@ -272,7 +273,7 @@ class TestVisible:
             return
         assert func.visible == {'a': False}
         # Test Operations API
-        op = OperationPlugin(func)
+        op = operation(func)
         assert op.visible == {'a': False}
 
 
@@ -283,7 +284,7 @@ class TestOpts:
             return
         assert not hasattr(func, 'opts')
         # Test Operation API
-        op = OperationPlugin(func)
+        op = operation(func)
         assert op.opts == {}
 
     def test_opts(self):
@@ -293,12 +294,12 @@ class TestOpts:
             return
         assert func.opts == {'a': {'someopt': 'opt'}}
         # Test Operation API
-        op = OperationPlugin(func)
+        op = operation(func)
         assert op.opts == {'a': {'someopt': 'opt'}}
 
 
 def test_as_parameter():
-    @OperationPlugin
+    @operation
     # @display_name('my_operation_name')
     @fixed('fixed_param')
     # @input_names('fixed', 'visible', 'limits', 'opts', 'units', 'unseen', 'default')
@@ -368,7 +369,7 @@ def test_as_parameter():
                               'value': 0,
                               'visible': True}]
 
-    assert func.as_parameter() == expected_as_parameter
+    assert func().as_parameter() == expected_as_parameter
 
 
 # TODO: BrokenPipe and ValueError: I/O operation on closed file exceptions occur:
@@ -382,38 +383,83 @@ def test_workflow():
 
     executor = DaskExecutor()
 
-    @OperationPlugin
+    @operation
     @output_names('square')
     def square(a=3) -> int:
         return a ** 2
 
-    @OperationPlugin
+    @operation
     @output_names('sum')
     def my_sum(a, b=3) -> int:
         return a + b
 
     wf = Workflow()
 
+    square = square()
+    my_sum = my_sum()
+
     wf.add_operation(square)
     wf.add_operation(my_sum)
     wf.add_link(square, my_sum, 'square', 'a')
 
     assert wf.execute_synchronous(executor=executor) == [{'sum': 12}]
+
+
+@pytest.fixture
+def square_op():
+    @operation
+    @output_names('square')
+    def square(a=3) -> int:
+        return a ** 2
+
+    return square
+
+
+@pytest.fixture
+def sum_op():
+    @operation
+    @output_names('sum')
+    def my_sum(a, b=3) -> int:
+        return a + b
+
+    return my_sum
+
+
+def test_multiple_instances(square_op, sum_op):
+    from xicam.core.execution.workflow import Workflow
+    from xicam.core.execution.daskexecutor import DaskExecutor
+
+    executor = DaskExecutor()
+
+    wf = Workflow()
+
+    square = square_op()
+    square2 = square_op()
+    square2.filled_values['a'] = 2
+    my_sum = sum_op()
+
+    wf.add_operation(square)
+    wf.add_operation(square2)
+    wf.add_operation(my_sum)
+    wf.add_link(square, my_sum, 'square', 'a')
+    wf.add_link(square2, my_sum, 'square', 'b')
+
+    assert wf.execute_synchronous(executor=executor) == [{'sum': 13}]
 #
 #
 # def test_autoconnect():
 #     from xicam.core.execution.workflow import Workflow
 #     from xicam.core.execution.daskexecutor import DaskExecutor
-#     from xicam.plugins.operationplugin import output_names
+#     from xicam.plugins.operation import output_names
 #
 #     executor = DaskExecutor()
 #
-#     @OperationPlugin
+#     @operation
 #     @output_names('square')
 #     def square(a=3) -> int:
 #         return a ** 2
 #
-#     @OperationPlugin
+#     @operation
 #     @output_names('sum')
 #     def my_sum(square, b=3) -> int:
 #         return square + b
